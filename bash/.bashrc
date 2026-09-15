@@ -1,7 +1,6 @@
 # Tracked bash config. Sourced from ~/.bashrc. Machine-local extras: ~/.bashrc.local.
 
 export PATH="$HOME/.local/bin:$PATH"
-unset LG_CONFIG_FILE
 
 [ -f "$HOME/.bash_aliases" ] && . "$HOME/.bash_aliases"
 

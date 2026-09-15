@@ -22,3 +22,5 @@
 	sort = version:refname
 [init]
 	defaultBranch = main
+[include]
+	path = ~/.config/lazygit/delta.gitconfig
