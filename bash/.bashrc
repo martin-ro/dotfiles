@@ -1,6 +1,7 @@
 # Tracked bash config. Sourced from ~/.bashrc. Machine-local extras: ~/.bashrc.local.
 
 export PATH="$HOME/.local/bin:$PATH"
+export SHELL=/usr/bin/bash
 
 if [ -f "$HOME/.config/lazygit/theme.yml" ]; then
   export LG_CONFIG_FILE="$HOME/.config/lazygit/config.yml,$HOME/.config/lazygit/theme.yml"
