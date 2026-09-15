@@ -16,17 +16,17 @@ customCommands:
       - type: "menuFromCommand"
         title: "Agent pane"
         key: "Pane"
-        command: "$HOME/.local/bin/to-agent panes"
+        command: "/home/martin/.local/bin/to-agent panes"
         filter: '^(?P<id>\S+)\t(?P<label>.+)$'
         valueFormat: "{{ .id }}"
         labelFormat: "{{ .label }}"
       - type: "input"
         title: "Note (optional)"
         key: "Note"
-    command: "$HOME/.local/bin/to-agent send {{.Form.Pane}} {{.SelectedPath | quote}} {{.Form.Note | quote}}"
+    command: "/home/martin/.local/bin/to-agent send {{.Form.Pane}} {{.SelectedPath | quote}} {{.Form.Note | quote}}"
     output: "log"
   - key: "e"
     context: "files"
     description: "Open file in my running Neovim (herdr tab)"
-    command: '$HOME/.local/bin/open-in-nvim {{.SelectedPath | quote}}'
+    command: '/home/martin/.local/bin/open-in-nvim {{.SelectedPath | quote}}'
     output: log

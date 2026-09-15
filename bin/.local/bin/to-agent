@@ -56,6 +56,8 @@ def candidates():
             p.get("pane_id") or "",
         )
     )
+    if not found:
+        found = [p for p in panes if p.get("agent")]
     return found
 
 
@@ -87,7 +89,11 @@ def display_for(pane, tab_cache):
 
 def cmd_panes():
     tab_cache = {}
-    for pane in candidates():
+    rows = candidates()
+    if not rows:
+        sys.stderr.write("to-agent: no agent panes found\n")
+        return 1
+    for pane in rows:
         print("{}\t{}".format(pane["pane_id"], display_for(pane, tab_cache)))
     return 0
 
@@ -104,7 +110,10 @@ def cmd_send(argv):
         payload += " {}".format(note.strip())
 
     herdr("pane", "send-text", pane_id, payload)
-    herdr("pane", "send-keys", pane_id, "Enter")
+    try:
+        herdr("pane", "send-keys", pane_id, "enter")
+    except RuntimeError:
+        herdr("pane", "send-keys", pane_id, "Enter")
     print("sent {} → {}".format(ref, pane_id))
     return 0
 
