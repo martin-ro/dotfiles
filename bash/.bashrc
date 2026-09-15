@@ -2,6 +2,12 @@
 
 export PATH="$HOME/.local/bin:$PATH"
 
+if [ -f "$HOME/.config/lazygit/theme.yml" ]; then
+  export LG_CONFIG_FILE="$HOME/.config/lazygit/config.yml,$HOME/.config/lazygit/theme.yml"
+elif [ -f "$HOME/.local/state/omarchy/current/theme/lazygit.yml" ]; then
+  export LG_CONFIG_FILE="$HOME/.config/lazygit/config.yml,$HOME/.local/state/omarchy/current/theme/lazygit.yml"
+fi
+
 [ -f "$HOME/.bash_aliases" ] && . "$HOME/.bash_aliases"
 
 if command -v nvim >/dev/null 2>&1; then
