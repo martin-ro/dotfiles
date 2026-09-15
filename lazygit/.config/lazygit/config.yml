@@ -9,7 +9,7 @@ git:
     - colorArg: always
       command: delta --paging=never
 customCommands:
-  - key: "<c-a>"
+  - key: ["A", "<ctrl+a>"]
     context: "files"
     description: "Discuss file with a herdr agent"
     prompts:
@@ -24,7 +24,7 @@ customCommands:
         title: "Note (optional)"
         key: "Note"
     command: "/home/martin/.local/bin/to-agent send {{.Form.Pane}} {{.SelectedPath | quote}} {{.Form.Note | quote}}"
-    output: "log"
+    output: popup
   - key: "e"
     context: "files"
     description: "Open file in my running Neovim (herdr tab)"
