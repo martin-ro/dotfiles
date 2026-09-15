@@ -6,8 +6,11 @@ Subcommands:
   to-agent send <pane_id> <ref> [note]  send "@<ref> [note]" to a pane
 """
 import json
+import os
 import subprocess
 import sys
+
+os.environ["PATH"] = os.path.expanduser("~/.local/bin") + os.pathsep + os.environ.get("PATH", "")
 
 
 def herdr(*args):
