@@ -61,8 +61,13 @@ curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
 export PATH="$HOME/.local/share/fnm:$PATH"
 eval "$(fnm env)"
 fnm install --lts
-fnm default lts-latest
-npm install -g tree-sitter-cli      # nvim-treesitter (main branch) builds parsers via this
+if [ -z "$(fnm default 2>/dev/null)" ]; then
+  fnm default lts-latest
+fi
+eval "$(fnm env)"
+npm config set prefix "$HOME/.local"
+export PATH="$HOME/.local/bin:$PATH"
+npm install -g tree-sitter-cli @earendil-works/pi-coding-agent
 curl -fsSL https://bun.sh/install | bash
 
 echo "==> herdr (agent orchestration)"
