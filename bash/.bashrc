@@ -25,7 +25,9 @@ fi
 
 command -v direnv >/dev/null 2>&1 && eval "$(direnv hook bash)"
 
-if [ -f /usr/lib/git-core/git-sh-prompt ]; then
+if command -v starship >/dev/null 2>&1 && [[ ${TERM:-} != dumb ]]; then
+  eval "$(starship init bash)"
+elif [ -f /usr/lib/git-core/git-sh-prompt ]; then
   . /usr/lib/git-core/git-sh-prompt
   GIT_PS1_SHOWDIRTYSTATE=1
   GIT_PS1_SHOWUNTRACKEDFILES=1

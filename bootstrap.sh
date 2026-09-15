@@ -139,7 +139,12 @@ echo "==> Stowing packages"
 # runtime state: herdr sockets/logs, picker-plus jump-back state, lazygit state.yml,
 # ~/.local/bin binaries, ~/.claude sessions/credentials).
 mkdir -p "$HOME/.config/herdr" "$HOME/.config/herdr/plugins/config/herdr-picker-plus" "$HOME/.config/lazygit" "$HOME/.local/bin" "$HOME/.config/caddy/sites" "$HOME/.claude" "$HOME/.codex" "$HOME/.pi/agent" "$HOME/.agents" "$HOME/.grok/rules"
-stow -v -t "$HOME" bash nvim git herdr lazygit bin caddy claude codex yazi pi agents grok
+if ! command -v starship >/dev/null 2>&1; then
+  echo "==> Starship (same prompt as Omarchy)"
+  curl -fsSL https://starship.rs/install.sh | sh -s -- -y -b "$HOME/.local/bin"
+fi
+
+stow -v -t "$HOME" bash nvim git herdr lazygit bin caddy claude codex yazi pi agents grok starship
 
 # yazi: terminal file manager, not packaged for Ubuntu; install the prebuilt
 # release into ~/.local/bin. Idempotent: skips when yazi is already present,

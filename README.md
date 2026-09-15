@@ -9,7 +9,7 @@ Machine-local extras: untracked `~/.bashrc.local`.
 Omarchy (via `omarchy-setup`):
 
 ```
-agents yazi hyprland bash herdr lazygit nvim
+agents yazi hyprland bash herdr lazygit nvim starship
 ```
 
 Optional on Omarchy: `fcitx5`, `bin`, `pi`, `claude`, `codex`, `grok`.
@@ -17,7 +17,7 @@ Optional on Omarchy: `fcitx5`, `bin`, `pi`, `claude`, `codex`, `grok`.
 Beelink (`./bootstrap.sh`):
 
 ```
-bash nvim git herdr lazygit bin caddy claude codex yazi pi agents grok
+bash nvim git herdr lazygit bin caddy claude codex yazi pi agents grok starship
 ```
 
 Do not stow `hyprland` or `fcitx5` on Beelink.
