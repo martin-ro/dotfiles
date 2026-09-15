@@ -26,7 +26,12 @@ fi
 
 echo "==> PHP (ondrej PPA) + direnv + per-project shims"
 sudo apt-get install -y software-properties-common
-sudo add-apt-repository -y ppa:ondrej/php
+if ls /etc/apt/sources.list.d/*ondrej*php* >/dev/null 2>&1; then
+  echo "   ondrej PHP PPA already present"
+else
+  sudo add-apt-repository -y ppa:ondrej/php \
+    || echo "   PPA add failed (Launchpad timeout?); continuing with existing PHP"
+fi
 sudo apt-get update -y
 for v in 8.2 8.3 8.4 8.5; do
   sudo apt-get install -y \
