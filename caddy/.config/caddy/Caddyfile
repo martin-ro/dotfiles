@@ -1,0 +1,19 @@
+# Per-user reverse proxy for the agent box: serves many Laravel apps/worktrees at
+# http://<slug>.localhost:9080 and https://<slug>.localhost:9443, reached from the
+# Mac over an SSH tunnel (`tunnel`). HTTPS uses Caddy's own local CA (trust it once
+# on the Mac via scripts/trust-box-ca.sh) — same idea as Herd/Valet.
+#
+# This file is static/tracked. The actual sites live in sites/*.caddy and are
+# written at runtime by `treeupdown/serve` and the worktree plugin (NOT tracked).
+{
+	admin localhost:2019
+	local_certs # all certs from Caddy's internal CA (no public ACME)
+	auto_https disable_redirects # issue internal certs but don't bind :80 for redirects
+	default_bind 127.0.0.1 # only reachable via loopback (the SSH tunnel); not on the tailnet
+	servers {
+		protocols h1 h2 # no h3/QUIC: tailnet reaches us via `tailscale serve --tcp` (TCP only),
+		# so advertising h3 (UDP) makes phone Chrome try QUIC and fail (ERR_SSL_PROTOCOL_ERROR)
+	}
+}
+
+import sites/*.caddy

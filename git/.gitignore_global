@@ -1,0 +1,9 @@
+.DS_Store
+._.DS_Store
+**/.DS_Store
+**/._.DS_Store
+
+**/.claude/settings.local.json
+
+# direnv per-project env (machine-local: phpuse / worktree PHP pins)
+.envrc

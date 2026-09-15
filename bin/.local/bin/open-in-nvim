@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# open-in-nvim FILE
+# Load FILE into the running nvim in this herdr workspace, then focus its tab.
+set -euo pipefail
+
+file=${1:?usage: open-in-nvim FILE}
+file=$(cd "$(dirname "$file")" && printf '%s/%s' "$PWD" "$(basename "$file")")
+
+ws=${HERDR_WORKSPACE_ID:-}
+sock=""; tab=""
+# Neovim's RPC socket location depends on version/OS: modern nvim (>=0.10) on Linux
+# listens at $XDG_RUNTIME_DIR/nvim.<pid>.0, whereas with XDG_RUNTIME_DIR unset (e.g.
+# macOS) it falls back to $TMPDIR/nvim.<user>/<xxxx>/nvim.<pid>.0. Under the new
+# split-UI model the socket belongs to nvim's core (`nvim --embed`) child, which
+# still inherits HERDR_WORKSPACE_ID from its pane. Search all known locations.
+# NB: don't trust $XDG_RUNTIME_DIR being exported — when this runs from a herdr
+# keybinding the env can be minimal, so also probe the canonical /run/user/<uid>.
+uid=$(id -u)
+for s in \
+    "${XDG_RUNTIME_DIR:-/run/user/$uid}"/nvim.*.0 \
+    "/run/user/$uid"/nvim.*.0 \
+    "${TMPDIR:-/tmp/}"nvim."$USER"/*/nvim.*.0 \
+    /tmp/nvim."$USER"/*/nvim.*.0; do
+    [ -S "$s" ] || continue
+    pid=${s##*nvim.}; pid=${pid%.0}
+    envline=$(ps eww "$pid" 2>/dev/null) || continue
+    case "$envline" in *"HERDR_WORKSPACE_ID=$ws"*) ;; *) continue ;; esac
+    sock=$s
+    tab=$(printf '%s\n' "$envline" | tr ' ' '\n' | sed -n 's/^HERDR_TAB_ID=//p')
+    break
+done
+
+if [ -z "$sock" ]; then
+    echo "open-in-nvim: no running nvim found in this herdr workspace" >&2
+    exit 1
+fi
+
+nvim --server "$sock" --remote "$file"
+[ -n "$tab" ] && herdr tab focus "$tab" >/dev/null 2>&1 || true

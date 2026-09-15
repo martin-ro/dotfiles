@@ -1,0 +1,67 @@
+onboarding = false
+
+[terminal]
+default_shell = "/usr/bin/bash"
+
+[ui.toast]
+delivery = "herdr"
+
+[ui.toast.herdr]
+position = "top-right"
+
+[theme]
+name = "terminal"
+auto_switch = true
+
+[ui]
+show_agent_labels_on_pane_borders = false
+agent_panel_sort = "priority"
+
+[keys]
+prefix = "ctrl+s"
+navigate_workspace_up = "q"
+navigate_workspace_down = "a"
+split_horizontal = "prefix+-"
+split_vertical = "prefix+|"
+open_worktree = "prefix+shift+o"
+remove_worktree = "prefix+shift+u"
+next_agent = "prefix+period"
+previous_agent = "prefix+comma"
+open_notification_target = "prefix+o"
+focus_agent = "ctrl+1..9"
+switch_tab = "prefix+1..9"
+swap_pane_left = "prefix+shift+h"
+swap_pane_right = "prefix+shift+l"
+swap_pane_up = "prefix+shift+k"
+swap_pane_down = "prefix+shift+j"
+
+[[keys.command]]
+key = "prefix+u"
+type = "plugin_action"
+command = "martinro.next-agent.jump"
+description = "next agent needing attention"
+
+[worktrees]
+directory= "~/Work/worktrees"
+
+[ui.sound]
+path = "sound/ding.mp3"
+done_path = "sound/ding.mp3"
+request_path = "sound/ding.mp3"
+
+[experimental]
+pane_history = false
+kitty_graphics = false
+
+[ui.sidebar.agents]
+row_gap = 0
+rows = [
+  ["state_icon", "workspace", "agent", "tab"],
+  ["machine"],
+]
+
+[ui.sidebar.spaces]
+rows = [
+  ["state_icon", "workspace"],
+  [{ token = "branch", dim = true }, "git_status"],
+]

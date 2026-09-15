@@ -1,0 +1,5 @@
+.DS_Store
+
+# nvim/lazy rewrites this on every plugin change — keep it machine-local so it
+# doesn't dirty the repo and silently block pulls.
+nvim/.config/nvim/lazy-lock.json

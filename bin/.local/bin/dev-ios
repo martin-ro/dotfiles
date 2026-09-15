@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# dev-ios / dev-android — simulator/emulator dev loop for a box-mirrored repo
+# or worktree. The platform comes from the invoked name (dev-android is a
+# symlink to this script).
+#
+#   dev-ios <name>        # mirror beelink:~/code/<name> (or ~/code/worktrees/*/<name>)
+#                         # to ~/code/<name> and start the iOS build
+#   dev-android <name>    # same, but build for Android
+#   dev-ios               # infer <name> from the current directory
+#
+# First run bootstraps everything: mutagen mirror (box = alpha, wins conflicts),
+# Mac-side composer/bun deps, native platform scaffold. Later runs go straight
+# to the build. Extra args pass through to `native:run <platform> --watch`.
+set -euo pipefail
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  echo "dev-ios/dev-android is a Mac-only helper (native builds need Xcode/Android Studio)." >&2
+  exit 1
+fi
+
+PLATFORM="${0##*/}"
+PLATFORM="${PLATFORM#dev-}"
+case "$PLATFORM" in
+  ios|android) ;;
+  *) echo "invoke as dev-ios or dev-android (got: $0)" >&2; exit 1 ;;
+esac
+
+BOX="${MK_BOX:-beelink}"
+
+if [[ $# -ge 1 && "$1" != -* ]]; then
+  NAME="$1"; shift
+else
+  NAME="$(basename "$PWD")"
+fi
+MAC_DIR="$HOME/code/$NAME"
+
+# Herd applies PHP isolation via shell aliases (php, composer), which scripts
+# don't inherit — call the 8.5 binary directly and run composer's phar with it.
+PHP="$HOME/Library/Application Support/Herd/bin/php85"
+[[ -x "$PHP" ]] || PHP=php
+COMPOSER="$HOME/Library/Application Support/Herd/bin/composer"
+[[ -f "$COMPOSER" ]] || COMPOSER="$(command -v composer)"
+
+# NativePHP's build pipeline shells out to bare `php`/`composer` (e.g. when
+# bundling the app for Android), which would resolve to Herd's default PHP —
+# shim both onto PATH so every child process uses the same 8.5 binary.
+if [[ "$PHP" != php ]]; then
+  SHIM_DIR=$(mktemp -d)
+  printf '#!/bin/sh\nexec "%s" "$@"\n' "$PHP" > "$SHIM_DIR/php"
+  printf '#!/bin/sh\nexec "%s" "%s" "$@"\n' "$PHP" "$COMPOSER" > "$SHIM_DIR/composer"
+  chmod +x "$SHIM_DIR/php" "$SHIM_DIR/composer"
+  export PATH="$SHIM_DIR:$PATH"
+fi
+
+if ! mutagen sync list "$NAME" >/dev/null 2>&1; then
+  # A master checkout lives at box:~/code/<name>; a worktree at
+  # box:~/code/worktrees/<repo>/<name>. Prefer the master if both exist.
+  BOX_PATH=$(ssh "$BOX" "ls -d ~/code/$NAME ~/code/worktrees/*/$NAME 2>/dev/null | head -1")
+  if [[ -z "$BOX_PATH" ]]; then
+    echo "'$NAME' not found on $BOX (~/code/$NAME or ~/code/worktrees/*/$NAME)" >&2
+    exit 1
+  fi
+  mkdir -p "$MAC_DIR"
+  echo "==> creating mutagen mirror '$NAME'  $MAC_DIR  <->  $BOX:$BOX_PATH"
+  mutagen sync create --name="$NAME" --sync-mode=two-way-resolved \
+    --ignore=/vendor --ignore=/node_modules --ignore=/nativephp \
+    --ignore=/public/build --ignore='/public/*-hot' --ignore=/public/storage \
+    --ignore=/storage/framework --ignore=/storage/logs --ignore=/bootstrap/cache \
+    "$BOX":"$BOX_PATH" "$MAC_DIR"
+  echo "==> waiting for initial sync"
+  mutagen sync flush "$NAME"
+fi
+mutagen sync list "$NAME" | grep -E "^Status:"
+
+cd "$MAC_DIR"
+
+# Laravel scratch dirs are excluded from the mirror (each side owns its own),
+# so a fresh mirror starts without them — including the tracked .gitignore
+# placeholders that normally live inside. Restore those too: NativePHP's build
+# copies the app into nativephp/<platform>/laravel with a LEAVES_ONLY iterator,
+# so an *empty* dir never makes it across, and the missing
+# storage/framework/views makes view.compiled resolve to false in the copy —
+# "Please provide a valid cache path" during package:discover, which fails the
+# build's composer install.
+mkdir -p bootstrap/cache storage/logs storage/app/public \
+  storage/framework/cache/data storage/framework/sessions \
+  storage/framework/testing storage/framework/views
+for d in bootstrap/cache storage/logs storage/app/public \
+  storage/framework/cache storage/framework/cache/data \
+  storage/framework/sessions storage/framework/testing storage/framework/views; do
+  [[ -e "$d/.gitignore" ]] || printf '*\n!.gitignore\n' > "$d/.gitignore"
+done
+[[ -e storage/framework/.gitignore ]] || printf '%s\n' \
+  compiled.php config.php down events.scanned.php maintenance.php \
+  routes.php routes.scanned.php 'schedule-*' services.json \
+  > storage/framework/.gitignore
+
+# Always reconcile deps: composer.json/lock sync from the box but vendor/ and
+# node_modules don't, so a `composer require` on the box otherwise leaves the
+# Mac building against stale deps. Both are near-instant no-ops when current.
+"$PHP" "$COMPOSER" install --no-interaction --no-progress --quiet
+[[ -f package.json ]] && bun install --silent
+if [[ ! -d "nativephp/$PLATFORM" ]]; then
+  echo "==> scaffolding native $PLATFORM project (first run)"
+  # The installer's "star us on GitHub?" confirm defaults to yes, and
+  # --no-interaction accepts defaults — shadow `open` so no browser pops.
+  OPEN_SHIM=$(mktemp -d)
+  printf '#!/bin/sh\nexit 0\n' > "$OPEN_SHIM/open" && chmod +x "$OPEN_SHIM/open"
+  PATH="$OPEN_SHIM:$PATH" "$PHP" artisan native:install "$PLATFORM" --no-interaction
+  rm -rf "$OPEN_SHIM"
+fi
+
+exec "$PHP" artisan native:run "$PLATFORM" --watch "$@"

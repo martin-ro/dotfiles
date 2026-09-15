@@ -1,0 +1,27 @@
+{
+  "images": {
+    "blockImages": false
+  },
+  "terminal": {
+    "showImages": false
+  },
+  "steeringMode": "all",
+  "followUpMode": "all",
+  "collapseChangelog": true,
+  "theme": "omarchy-system",
+  "defaultProvider": "xai",
+  "defaultModel": "grok-4.6",
+  "defaultThinkingLevel": "high",
+  "enableInstallTelemetry": false,
+  "quietStartup": true,
+  "hideThinkingBlock": true,
+  "treeFilterMode": "no-tools",
+  "packages": [
+    "npm:pi-mcp-adapter@2.32.1",
+    "git:github.com/DietrichGebert/ponytail@356918eba965ee1eac64bd3a7f0dd02108350de5",
+    "npm:pi-web-access@0.28.0",
+    "npm:pi-subagents@0.66.0",
+    "npm:@ff-labs/pi-fff@0.10.6"
+  ],
+  "lastChangelogVersion": "0.85.1"
+}

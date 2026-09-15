@@ -1,0 +1,4 @@
+# Do not stow .gitconfig — it's a machine-local loader (real file) that includes
+# this repo's git/.gitconfig. Tools like `gh` append to ~/.gitconfig; keeping it
+# un-stowed means those writes land in the local loader and never dirty the repo.
+^\.gitconfig$

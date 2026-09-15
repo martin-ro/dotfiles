@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# deploy — update a hosted Laravel site in place: pull, install deps, build assets,
+# migrate, clear caches. Run inside the site dir, or pass it:  deploy [dir]
+#
+# Meant for the ~/sites/<app> deploy checkouts (kept separate from the ~/code work
+# repos). Installs WITH dev deps on purpose — some apps reference dev packages
+# (e.g. filament-developer-logins) unconditionally, so --no-dev would 500 them.
+set -euo pipefail
+
+APP="${1:-$PWD}"
+[ -d "$APP" ] || { echo "no such directory: $APP" >&2; exit 1; }
+APP="$(cd "$APP" && pwd -P)"; cd "$APP"
+[ -f artisan ] && [ -f composer.json ] || { echo "not a Laravel app: $APP" >&2; exit 1; }
+
+export PATH="/usr/local/bin:/usr/bin:/bin:$HOME/.local/bin:$HOME/.bun/bin:$HOME/.local/share/fnm:$PATH"
+# Honor the site's pinned PHP (.envrc: PATH_add "$HOME/.php-shims/<v>").
+shim="$(sed -n 's|.*\.php-shims/\([0-9][0-9.]*\).*|\1|p' .envrc 2>/dev/null | head -1)"
+[ -n "${shim:-}" ] && [ -x "$HOME/.php-shims/$shim/php" ] && export PATH="$HOME/.php-shims/$shim:$PATH"
+
+echo "==> deploying $APP  (php $(php -r 'echo PHP_VERSION;' 2>/dev/null))"
+echo "==> git pull"
+git pull --ff-only
+echo "==> composer install"
+composer install --no-interaction --no-progress
+if [ -f package.json ]; then
+  echo "==> npm build"
+  command -v fnm >/dev/null 2>&1 && eval "$(fnm env)"
+  npm install --no-audit --no-fund
+  npm run build
+fi
+echo "==> migrate"
+php artisan migrate --force
+echo "==> clear caches"
+php artisan optimize:clear
+echo "==> restart queue workers (reload new code; harmless no-op if none run)"
+php artisan queue:restart
+echo "✓ deployed $APP"

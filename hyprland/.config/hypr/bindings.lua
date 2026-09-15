@@ -1,0 +1,34 @@
+hl.unbind("SUPER + J")
+hl.unbind("SUPER + K")
+hl.unbind("SUPER + L")
+hl.unbind("SUPER + ALT + K")
+hl.unbind("SUPER + SHIFT + C")
+hl.unbind("SUPER + SHIFT + E")
+hl.unbind("SUPER + SHIFT + ALT + E")
+hl.unbind("SUPER + SHIFT + ALT + G")
+hl.unbind("SUPER + SHIFT + W")
+
+o.bind("SUPER + H", "Focus on left window", hl.dsp.focus({ direction = "l" }))
+o.bind("SUPER + J", "Focus on below window", hl.dsp.focus({ direction = "d" }))
+o.bind("SUPER + K", "Focus on above window", hl.dsp.focus({ direction = "u" }))
+o.bind("SUPER + L", "Focus on right window", hl.dsp.focus({ direction = "r" }))
+
+o.bind("SUPER + SHIFT + H", "Swap window to the left", hl.dsp.window.swap({ direction = "l" }))
+o.bind("SUPER + SHIFT + J", "Swap window down", hl.dsp.window.swap({ direction = "d" }))
+o.bind("SUPER + SHIFT + K", "Swap window up", hl.dsp.window.swap({ direction = "u" }))
+o.bind("SUPER + SHIFT + L", "Swap window to the right", hl.dsp.window.swap({ direction = "r" }))
+
+o.bind("SUPER + ALT + J", "Toggle window split", hl.dsp.layout("togglesplit"))
+o.bind("SUPER + ALT + K", "Keybindings", "omarchy-menu-keybindings")
+o.bind("SUPER + ALT + L", "Toggle workspace layout", "omarchy-hyprland-workspace-layout-toggle")
+o.bind("SUPER + ALT + T", "Project timers", "omarchy-shell shell toggle martin.timers")
+
+o.bind("SUPER + SHIFT + C", "Google Calendar", { webapp = "https://calendar.google.com/", focus = true })
+o.bind("SUPER + SHIFT + E", "Gmail", { webapp = "https://mail.google.com/mail/u/0/#inbox", focus = true })
+o.bind("SUPER + SHIFT + ALT + E", "New Gmail", { webapp = "https://mail.google.com/mail/u/0/#inbox?compose=new" })
+o.bind("SUPER + SHIFT + T", "Google Tasks", { webapp = "https://tasks.google.com/", focus = true })
+o.bind("SUPER + SHIFT + W", "WhatsApp", { webapp = "https://web.whatsapp.com/", focus = true })
+
+o.bind("SUPER + D", "Toggle dictation", "voxtype record toggle")
+
+require("hypr.qconsole")

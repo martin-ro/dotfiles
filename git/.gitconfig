@@ -1,0 +1,24 @@
+# This is Git's per-user configuration file.
+[user]
+	name = Martin Ro
+	email = martin-ro@users.noreply.github.com
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+[core]
+	excludesfile = ~/.gitignore_global
+	editor = nvim
+[push]
+	autoSetupRemote = true
+[http]
+	postBuffer = 157286400
+[column]
+	ui = auto
+[branch]
+	sort = -committerdate
+[tag]
+	sort = version:refname
+[init]
+	defaultBranch = main
