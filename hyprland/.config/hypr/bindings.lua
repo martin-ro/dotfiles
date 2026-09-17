@@ -30,5 +30,6 @@ o.bind("SUPER + SHIFT + T", "Google Tasks", { webapp = "https://tasks.google.com
 o.bind("SUPER + SHIFT + W", "WhatsApp", { webapp = "https://web.whatsapp.com/", focus = true })
 
 o.bind("SUPER + D", "Toggle dictation", "voxtype record toggle")
+o.bind("SUPER + ALT + Y", "YouTube Shelf", "omarchy-shell shell summon io.github.martin-ro.youtube-shelf '{}'")
 
 require("hypr.qconsole")
