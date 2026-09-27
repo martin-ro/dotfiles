@@ -19,7 +19,8 @@
     ]
   },
   "enabledPlugins": {
-    "ponytail@ponytail": true
+    "ponytail@ponytail": true,
+    "php-lsp@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "ponytail": {
