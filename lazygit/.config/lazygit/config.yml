@@ -1,6 +1,18 @@
 gui:
   nerdFontsVersion: "3"
-  sidePanelWidth: 0.2
+  sidePanelWidth: 0.3
+  showCommandLog: false
+  showBottomLine: false
+  showPanelJumps: false
+  showRandomTip: false
+  showListFooter: false
+  showNumstatInFilesView: true
+  showFileTree: true
+  shrinkSidePanelsToContent: true
+  expandFocusedSidePanel: true
+  portraitMode: auto
+  portraitModeAutoMaxWidth: 110
+  portraitModeAutoMinHeight: 30
 git:
   pagers:
     - colorArg: always
