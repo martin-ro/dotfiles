@@ -16,10 +16,10 @@ gui:
 git:
   pagers:
     - colorArg: always
-      pager: delta --paging=never
+      pager: delta --paging=never --line-numbers
   diffRenderers:
     - colorArg: always
-      command: delta --paging=never
+      command: delta --paging=never --line-numbers
 customCommands:
   - key: "<c-a>"
     context: "files"
