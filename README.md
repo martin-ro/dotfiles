@@ -9,7 +9,7 @@ Machine-local extras: untracked `~/.bashrc.local`.
 Omarchy (via `omarchy-setup`):
 
 ```
-agents yazi hyprland bash herdr lazygit nvim starship
+agents yazi hyprland bash herdr lazygit nvim starship voxtype
 ```
 
 Optional on Omarchy: `fcitx5`, `bin`, `pi`, `claude`, `codex`, `grok`.
