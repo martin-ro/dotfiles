@@ -72,16 +72,12 @@ fallback_to_clipboard = true
 # 0 = fastest possible, increase if characters are dropped
 type_delay_ms = 1
 auto_submit = false
+shift_enter_newlines = true
 
-# Post-processing command (optional)
-# Pipe transcribed text through an external command for cleanup before output.
-# The command receives text on stdin and outputs processed text on stdout.
-# Useful for LLM-based text cleanup, grammar correction, filler word removal.
-# On any failure (timeout, error), falls back to original transcription.
-#
-# [output.post_process]
-# command = "ollama run llama3.2:1b 'Clean up this dictation. Fix grammar, remove filler words. Output only the cleaned text:'"
-# timeout_ms = 30000  # 30 second timeout (generous for LLM)
+# Strip trailing commas Whisper adds after list items.
+[output.post_process]
+command = 'sed -E "s/^([0-9]+\.)[[:space:]]*,[[:space:]]*/\\1 /; /^[[:space:]]*(-|[0-9]+\.)/ s/[.,][[:space:]]*$//"'
+timeout_ms = 1000
 
 [output.notification]
 # Show notification when recording starts (hotkey pressed)
@@ -97,14 +93,30 @@ on_transcription = false
 smart_auto_submit = true
 spoken_punctuation = true
 
-# [text]
-# Text processing options (word replacements, spoken punctuation)
-#
-# Enable spoken punctuation conversion (e.g., say "period" to get ".")
-# spoken_punctuation = false
-#
-# Custom word replacements (case-insensitive)
-# replacements = { "hyperwhisper" = "hyprwhspr" }
+# Distinct from prose: "bullet" and "number one" are too common.
+[text.replacements]
+newline = "\n"
+"new bullet" = "\n- "
+"list one" = "\n1. "
+"list 1" = "\n1. "
+"list two" = "\n2. "
+"list 2" = "\n2. "
+"list three" = "\n3. "
+"list 3" = "\n3. "
+"list four" = "\n4. "
+"list 4" = "\n4. "
+"list five" = "\n5. "
+"list 5" = "\n5. "
+"list six" = "\n6. "
+"list 6" = "\n6. "
+"list seven" = "\n7. "
+"list 7" = "\n7. "
+"list eight" = "\n8. "
+"list 8" = "\n8. "
+"list nine" = "\n9. "
+"list 9" = "\n9. "
+"list ten" = "\n10. "
+"list 10" = "\n10. "
 
 [parakeet]
 model = "parakeet-unified-en-0.6b"
