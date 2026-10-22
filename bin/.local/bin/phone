@@ -42,7 +42,7 @@ collect_sites() {
     [ -n "$host" ] && [ -n "$root" ] || continue
     slug=${host%%.*}
     printf '%s\t%s\t%s\n' "$slug" "$root" "$fpm"
-  done | sort -u
+  done | sort -u | awk -F'\t' '!seen[$1]++'
 }
 
 generate() {
