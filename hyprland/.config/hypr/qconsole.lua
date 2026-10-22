@@ -7,7 +7,7 @@ end
 -- down over whatever workspace you are on.
 
 local share = 0.5
-local seed = "[workspace special:scratchpad silent] omarchy-agent"
+local seed = "[workspace special:scratchpad silent] uwsm-app -- xdg-terminal-exec --app-id=org.omarchy.agent --dir=/home/martin/Work -e claude --model claude-opus-5-5 --effort max"
 
 hl.config({
   decoration = {
