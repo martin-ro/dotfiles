@@ -32,6 +32,9 @@
     }
   },
   "outputStyle": "Concise",
+  "env": {
+    "CLAUDE_CODE_EFFORT_LEVEL": "max"
+  },
   "effortLevel": "xhigh",
   "modelSettings": {
     "claude-fable-5": {
