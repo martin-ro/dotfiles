@@ -1,0 +1,46 @@
+#!/bin/bash
+# Copy current palettes to hosts in ~/.config/omarchy/theme-remotes
+[[ -n ${OMARCHY_THEME_REMOTE:-} ]] && exit 0
+
+hosts=$HOME/.config/omarchy/theme-remotes
+dir=$HOME/.local/state/omarchy/current/theme
+[[ -d $dir ]] || exit 0
+
+fill_neovim() {
+  local tpl=$HOME/.config/omarchy/themed/neovim.lua.tpl
+  local colors=$dir/colors.toml
+  [[ -f $tpl && -f $colors ]] || return 0
+  command -v omarchy-theme-color >/dev/null || return 0
+  local script
+  script=$(mktemp)
+  while IFS=$'\t' read -r k v; do
+    [[ $v == \#* ]] || continue
+    printf 's|{{[[:space:]]*%s[[:space:]]*}}|%s|g\n' "$k" "$v"
+  done < <(omarchy-theme-color --file "$colors" --all) >"$script"
+  sed -f "$script" "$tpl" >"$dir/neovim.lua"
+  rm -f "$script"
+}
+
+fill_neovim
+
+[[ -f $hosts ]] || exit 0
+
+files=()
+for f in lazygit.yml delta.gitconfig pi.json claude.json neovim.lua; do
+  [[ -f $dir/$f ]] && files+=("$f")
+done
+((${#files[@]})) || exit 0
+
+while read -r host; do
+  [[ $host && $host != \#* ]] || continue
+  tar -C "$dir" -cf - "${files[@]}" | ssh -o ConnectTimeout=2 -o BatchMode=yes "$host" '
+    tmp=$(mktemp -d) || exit 0
+    tar -xf - -C "$tmp" || { rm -rf "$tmp"; exit 0; }
+    [[ -f $tmp/lazygit.yml ]] && mkdir -p ~/.config/lazygit && cp "$tmp/lazygit.yml" ~/.config/lazygit/theme.yml
+    [[ -f $tmp/delta.gitconfig ]] && mkdir -p ~/.config/lazygit && cp "$tmp/delta.gitconfig" ~/.config/lazygit/delta.gitconfig
+    [[ -d ~/.pi/agent && -f $tmp/pi.json ]] && mkdir -p ~/.pi/agent/themes && cp "$tmp/pi.json" ~/.pi/agent/themes/omarchy-system.json
+    [[ -d ~/.claude && -f $tmp/claude.json ]] && mkdir -p ~/.claude/themes && cp "$tmp/claude.json" ~/.claude/themes/omarchy.json
+    [[ -f $tmp/neovim.lua ]] && mkdir -p ~/.config/aether/theme && cp "$tmp/neovim.lua" ~/.config/aether/theme/neovim.lua
+    rm -rf "$tmp"
+  ' || true
+done < "$hosts"

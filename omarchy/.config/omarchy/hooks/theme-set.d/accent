@@ -1,0 +1,46 @@
+#!/bin/bash
+# Force a fuchsia accent on every theme: patch colors.toml, re-render the
+# templated configs, and reload the apps that use them.
+ACCENT="#ff00ff"
+
+theme=$1
+state=$HOME/.local/state/omarchy/current
+cur=$state/theme
+next=$state/next-theme
+
+[[ -f $cur/colors.toml ]] || exit 0
+[[ $(omarchy-theme-color --file "$cur/colors.toml" accent) == "$ACCENT" ]] && exit 0
+
+exec 9>"${XDG_RUNTIME_DIR:-/tmp}/omarchy-theme-set.lock"
+flock 9
+
+rm -rf "$next"
+cp -r "$cur" "$next"
+
+# Drop the files rendered from templates so they render again. Keep files the theme ships.
+# ponytail: a repo-installed theme's denied files (alacritty.toml etc.) count as shipped, so those keep the theme accent.
+for tpl in "$OMARCHY_PATH"/default/themed/*.tpl "$HOME"/.config/omarchy/themed/*.tpl; do
+  f=$(basename "$tpl" .tpl)
+  [[ -e $OMARCHY_PATH/themes/$theme/$f || -e $HOME/.config/omarchy/themes/$theme/$f ]] || rm -f "$next/$f"
+done
+
+if grep -q '^accent *=' "$next/colors.toml"; then
+  sed -i -E "s/^accent *=.*/accent = \"$ACCENT\"/" "$next/colors.toml"
+else
+  echo "accent = \"$ACCENT\"" >>"$next/colors.toml"
+fi
+
+omarchy-theme-set-templates
+rm -rf "$cur"
+mv "$next" "$cur"
+flock -u 9
+
+shell_payload=$([[ -f $cur/shell.toml ]] && base64 -w 0 "$cur/shell.toml")
+timeout 2 omarchy-shell shell applyTheme "$(base64 -w 0 "$cur/colors.toml")" "$shell_payload" >/dev/null 2>&1
+
+for cmd in omarchy-restart-terminal omarchy-restart-hyprctl omarchy-restart-btop \
+  omarchy-theme-set-pi omarchy-theme-set-claude omarchy-theme-set-hermes omarchy-theme-set-t3code \
+  omarchy-theme-set-vscode omarchy-theme-set-obsidian omarchy-theme-set-keyboard; do
+  bash -lc "$cmd" >/dev/null 2>&1 &
+done
+wait
