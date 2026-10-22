@@ -70,10 +70,10 @@ echo "==> mc alias 'local'"
 
 echo "==> Caddy proxy site (s3.localhost + minio.localhost; reached via the existing tunnel)"
 cat > "$HOME/.config/caddy/sites/minio.caddy" <<'EOF'
-http://s3.localhost:9080, https://s3.localhost:9443 {
+http://s3.localhost:9080, https://s3.localhost:9443, https://s3.localhost {
 	reverse_proxy 127.0.0.1:9000
 }
-http://minio.localhost:9080, https://minio.localhost:9443 {
+http://minio.localhost:9080, https://minio.localhost:9443, https://minio.localhost {
 	reverse_proxy 127.0.0.1:9001
 }
 EOF

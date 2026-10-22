@@ -19,8 +19,17 @@ if [ "$(id -u)" = 0 ]; then
   exit 1
 fi
 
-HTTP_PORT=9080    # 8080/443 are taken by Herd on the Mac
+HTTP_PORT=9080    # old ports, still served so older worktree .env files keep working
 HTTPS_PORT=9443
+
+# Caddy runs as $USER and also binds 443, so sites need no port in their address.
+# Linux permits that only when this limit is 443 or lower.
+if [ "$(cat /proc/sys/net/ipv4/ip_unprivileged_port_start)" -gt 443 ]; then
+  echo "User processes cannot bind port 443 on this box. Put" >&2
+  echo "    net.ipv4.ip_unprivileged_port_start=443" >&2
+  echo "in a file in /etc/sysctl.d, run 'sudo sysctl --system', then run this script again." >&2
+  exit 1
+fi
 DF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "==> Caddy config (stow + dirs)"
@@ -31,8 +40,8 @@ fi
 # A default landing site guarantees import sites/*.caddy always matches a file and
 # gives the bare host a helpful page. Regenerated each run (not tracked).
 cat > "$HOME/.config/caddy/sites/000-default.caddy" <<EOF
-http://localhost:${HTTP_PORT}, https://localhost:${HTTPS_PORT} {
-	respond "herdr-box dev proxy — browse https://<project>.localhost:${HTTPS_PORT} (run 'serve list' on the box)" 200
+http://localhost:${HTTP_PORT}, https://localhost:${HTTPS_PORT}, https://localhost {
+	respond "herdr-box dev proxy — browse https://<project>.localhost (run 'serve list' on the box)" 200
 }
 EOF
 
@@ -102,7 +111,7 @@ systemctl --user daemon-reload
 systemctl --user enable --now caddy.service
 
 echo
-echo "✓ reverse proxy ready on 127.0.0.1 (http :${HTTP_PORT}, https :${HTTPS_PORT})"
+echo "✓ reverse proxy ready on 127.0.0.1 (https :443; old ports :${HTTPS_PORT} and http :${HTTP_PORT})"
 echo "  Box:  serve up ~/code/<project>      (worktrees register automatically)"
-echo "  Mac:  run 'tunnel', then open https://<project>.localhost:${HTTPS_PORT}"
+echo "  Your machine:  forward its port 443 to this box's ${HTTPS_PORT}, then open https://<project>.localhost"
 echo "  Mac:  trust the box's HTTPS once:  bash ~/dotfiles/scripts/trust-box-ca.sh"

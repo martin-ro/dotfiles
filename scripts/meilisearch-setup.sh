@@ -68,7 +68,7 @@ done
 
 echo "==> Caddy proxy site (meili.localhost; reached via the existing tunnel)"
 cat > "$HOME/.config/caddy/sites/meilisearch.caddy" <<'EOF'
-http://meili.localhost:9080, https://meili.localhost:9443 {
+http://meili.localhost:9080, https://meili.localhost:9443, https://meili.localhost {
 	reverse_proxy 127.0.0.1:7700
 }
 EOF
