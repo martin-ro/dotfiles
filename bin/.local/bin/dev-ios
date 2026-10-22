@@ -1,38 +1,84 @@
 #!/usr/bin/env bash
-# dev-ios / dev-android — simulator/emulator dev loop for a box-mirrored repo
-# or worktree. The platform comes from the invoked name (dev-android is a
-# symlink to this script).
+# dev-ios / dev-android — build a box repo on the Mac and run it on a device or
+# simulator. Runs on the box (beelink): pushes the repo to the Mac with rsync,
+# then ships this file over ssh and runs its Darwin half there. The Mac needs no
+# copy of this script, so the two sides cannot drift apart. The platform comes
+# from the invoked name (dev-android is a symlink to this script).
 #
-#   dev-ios <name>        # mirror beelink:~/code/<name> (or ~/code/worktrees/*/<name>)
-#                         # to ~/code/<name> and start the iOS build
-#   dev-android <name>    # same, but build for Android
-#   dev-ios               # infer <name> from the current directory
+#   dev-ios <name|repo/wt|branch|path> [udid] [native:run args]
+#   dev-android <name> [udid]
+#   dev-ios                       # infer the repo from the current directory
 #
-# First run bootstraps everything: mutagen mirror (box = alpha, wins conflicts),
-# Mac-side composer/bun deps, native platform scaffold. Later runs go straight
-# to the build. Extra args pass through to `native:run <platform> --watch`.
+# <name> resolves to ~/Work/<name>, ~/code/<name>, a worktree (<repo>/<wt> or its
+# basename), a checked-out branch (via git worktree list) or an absolute path.
+# The Mac mirror lives at ~/code/<path relative to ~/Work or ~/code>.
+# Without a udid, native:run prompts (TTY) or reuses the last device (no TTY).
+# Pass -W for hot reload; NativePHP only supports it on simulators.
+#
+# On the Mac (also usable directly):  dev-ios <dir> [udid] [native:run args]
 set -euo pipefail
 
-if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "dev-ios/dev-android is a Mac-only helper (native builds need Xcode/Android Studio)." >&2
-  exit 1
-fi
-
-PLATFORM="${0##*/}"
+PLATFORM="${DEV_PLATFORM:-${0##*/}}"
 PLATFORM="${PLATFORM#dev-}"
 case "$PLATFORM" in
   ios|android) ;;
   *) echo "invoke as dev-ios or dev-android (got: $0)" >&2; exit 1 ;;
 esac
 
-BOX="${MK_BOX:-beelink}"
+# Each side owns these: never pushed to the Mac, never pulled back.
+# A project can leave more out with a .rsync-filter file in its root (rsync -F).
+EXCLUDES=(--exclude=/.git --exclude=/vendor --exclude=/node_modules --exclude=/nativephp
+  --exclude=/public/build --exclude='/public/*-hot' --exclude=/public/storage
+  --exclude=/storage/framework --exclude=/storage/logs --exclude=/bootstrap/cache)
 
-if [[ $# -ge 1 && "$1" != -* ]]; then
-  NAME="$1"; shift
-else
-  NAME="$(basename "$PWD")"
+# ---- box: resolve, push, run on the Mac --------------------------------------
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  MAC="${DEV_MAC:-mac}"
+  if [[ $# -ge 1 && "$1" != -* ]]; then Q="$1"; shift; else Q="$PWD"; fi
+
+  resolve() {
+    local q="$1" p m
+    for p in "$q" ~/Work/"$q" ~/code/"$q" ~/Work/worktrees/"$q" ~/code/worktrees/"$q" \
+             ~/Work/worktrees/*/"$q" ~/code/worktrees/*/"$q"; do
+      [[ -d "$p" ]] && { realpath "$p"; return; }
+    done
+    m=$(for p in ~/Work/*/ ~/code/*/; do git -C "$p" worktree list --porcelain 2>/dev/null; done \
+      | awk -v want="refs/heads/$q" '/^worktree /{w=substr($0,10)} /^branch / && substr($0,8)==want {print w}' | sort -u)
+    [[ $(wc -l <<<"$m") -le 1 ]] || { printf "'%s' matches several worktrees:\n%s\n" "$q" "$m" >&2; return 1; }
+    [[ -n "$m" ]] && echo "$m"
+  }
+  BOX_PATH=$(resolve "$Q") || { echo "'$Q' not found (~/Work, ~/code, worktree, branch or path)" >&2; exit 1; }
+
+  REL="${BOX_PATH#"$HOME/Work/"}"; REL="${REL#"$HOME/code/"}"
+  [[ "$REL" == /* ]] && REL="${REL##*/}"
+  MAC_DIR="code/$REL"
+  echo "==> $BOX_PATH  ->  $MAC:~/$MAC_DIR"
+  ssh "$MAC" "mkdir -p ~/$MAC_DIR"
+  rsync -a -F --delete "${EXCLUDES[@]}" "$BOX_PATH/" "$MAC:$MAC_DIR/"
+
+  FIRST=0; [[ -f "$BOX_PATH/nativephp.lock" ]] || FIRST=1
+  TTY=(-t); [[ -t 0 ]] || { TTY=(-T); set -- "$@" --no-interaction --no-tty; }
+  status=0
+  ssh "${TTY[@]}" "$MAC" "DEV_PLATFORM=$PLATFORM bash <(echo $(base64 -w0 "$0") | base64 -d) $(printf '%q ' "$MAC_DIR" "$@")" || status=$?
+  # native:install (first run, Mac only) writes .env keys, nativephp.lock, config and
+  # native/. Pull them back so the box stays the git source of truth.
+  (( FIRST )) && rsync -a -F "${EXCLUDES[@]}" "$MAC:$MAC_DIR/" "$BOX_PATH/"
+  exit $status
 fi
-MAC_DIR="$HOME/code/$NAME"
+
+# ---- Mac: build and run in <dir> ---------------------------------------------
+export PATH="$HOME/.bun/bin:/opt/homebrew/bin:$PATH"   # ssh shells lack bun and pod
+# ssh shells also skip ~/.zprofile on the Mac, which sets these two. Without them
+# Gradle takes the system Java 11 (Android needs 17) and finds no SDK.
+export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home}"
+export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+cd "${1:?usage: dev-$PLATFORM <dir> [udid] [native:run args]}"; shift
+
+# ssh sessions see the login keychain as locked, so CodeSign fails with
+# errSecInternalComponent. Store the Mac login password once:
+#   umask 077; mkdir -p ~/.config/dev-ios; printf '%s' 'PASSWORD' > ~/.config/dev-ios/keychain-password
+PW="$HOME/.config/dev-ios/keychain-password"
+[[ -r "$PW" ]] && security unlock-keychain -p "$(<"$PW")" ~/Library/Keychains/login.keychain-db
 
 # Herd applies PHP isolation via shell aliases (php, composer), which scripts
 # don't inherit — call the 8.5 binary directly and run composer's phar with it.
@@ -51,28 +97,6 @@ if [[ "$PHP" != php ]]; then
   chmod +x "$SHIM_DIR/php" "$SHIM_DIR/composer"
   export PATH="$SHIM_DIR:$PATH"
 fi
-
-if ! mutagen sync list "$NAME" >/dev/null 2>&1; then
-  # A master checkout lives at box:~/code/<name>; a worktree at
-  # box:~/code/worktrees/<repo>/<name>. Prefer the master if both exist.
-  BOX_PATH=$(ssh "$BOX" "ls -d ~/code/$NAME ~/code/worktrees/*/$NAME 2>/dev/null | head -1")
-  if [[ -z "$BOX_PATH" ]]; then
-    echo "'$NAME' not found on $BOX (~/code/$NAME or ~/code/worktrees/*/$NAME)" >&2
-    exit 1
-  fi
-  mkdir -p "$MAC_DIR"
-  echo "==> creating mutagen mirror '$NAME'  $MAC_DIR  <->  $BOX:$BOX_PATH"
-  mutagen sync create --name="$NAME" --sync-mode=two-way-resolved \
-    --ignore=/vendor --ignore=/node_modules --ignore=/nativephp \
-    --ignore=/public/build --ignore='/public/*-hot' --ignore=/public/storage \
-    --ignore=/storage/framework --ignore=/storage/logs --ignore=/bootstrap/cache \
-    "$BOX":"$BOX_PATH" "$MAC_DIR"
-  echo "==> waiting for initial sync"
-  mutagen sync flush "$NAME"
-fi
-mutagen sync list "$NAME" | grep -E "^Status:"
-
-cd "$MAC_DIR"
 
 # Laravel scratch dirs are excluded from the mirror (each side owns its own),
 # so a fresh mirror starts without them — including the tracked .gitignore
@@ -110,4 +134,34 @@ if [[ ! -d "nativephp/$PLATFORM" ]]; then
   rm -rf "$OPEN_SHIM"
 fi
 
-exec "$PHP" artisan native:run "$PLATFORM" --watch "$@"
+npm_script() {
+  [[ -f package.json ]] || return 1
+  "$PHP" -r '
+    $package = json_decode(file_get_contents("package.json"), true) ?: [];
+    $script = $package["scripts"][$argv[1]] ?? "";
+    if ($script === "") {
+        exit(1);
+    }
+    echo $script;
+  ' "$1"
+}
+
+if [[ -f package.json ]]; then
+  platform_build="build:$PLATFORM"
+  if npm_script "$platform_build" >/dev/null 2>&1; then
+    echo "==> building Vite assets ($platform_build)"
+    bun run "$platform_build"
+  elif build_cmd="$(npm_script build 2>/dev/null)"; then
+    if [[ "$build_cmd" == *"--mode="* ]]; then
+      echo "==> building Vite assets (build)"
+      bun run build
+    else
+      echo "==> building Vite assets (build -- --mode=$PLATFORM)"
+      bun run build -- "--mode=$PLATFORM"
+    fi
+  fi
+fi
+
+"$PHP" artisan native:run "$PLATFORM" "$@"
+# native:run exits 0 after "Build failed!"; the log (truncated per run) is the signal.
+! grep -qs "BUILD FAILED" "nativephp/$PLATFORM-build.log"
