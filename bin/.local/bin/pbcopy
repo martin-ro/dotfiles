@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# pbcopy for a headless box: send stdin to the local (Mac) clipboard via OSC 52.
+# Without a tty (herdr plugin actions), write to the herdr pane's pty instead;
+# herdr forwards OSC 52 from pane output to the attached client.
+set -euo pipefail
+
+tty=/dev/tty
+if ! { : >/dev/tty; } 2>/dev/null; then
+  pane="${HERDR_PANE_ID:?pbcopy: no tty and no HERDR_PANE_ID}"
+  pid=$(herdr pane process-info --pane "$pane" | sed -n 's/.*"shell_pid":\([0-9]*\).*/\1/p')
+  tty=$(readlink "/proc/$pid/fd/0")
+fi
+
+printf '\e]52;c;%s\a' "$(base64 -w0)" > "$tty"
