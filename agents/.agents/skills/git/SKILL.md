@@ -1,6 +1,6 @@
 ---
 name: git
-description: "Commit, and optionally push, open a PR, and request review, for the current working-tree changes. Commits as the BeeCodeBot bot (via the gh-app wrapper) in repos opted in with `git config author.mode bot`, otherwise as the user with plain git/gh (safe default: repos that are not the user's never get bot attribution). Use when the user asks to commit, 'commit and push', 'push my changes', 'open a PR', 'ship this', or 'PR and request review'; or to reply to / address a reviewer's comments on a PR (posted as the bot in bot repos, never as the user); or to check a PR's CI / review status ('is it green?', 'did CI pass?', 'any changes requested?'); or to OPEN A GITHUB ISSUE ('open an issue', 'file a bug', 'create a tracking issue': created as the bot in bot repos, never silently as the user); or to FOLLOW UP on open PRs ('/git followup', 'merge the approved PRs', 'address the review feedback'): merges what's approved and green, reworks, resolves conflicts, fixes CI. NOT for general git questions or read-only git."
+description: "Commit, and optionally push, open a PR, and request review, for the current working-tree changes. Commits as the BeeCodeBot bot (via the gh-app wrapper) in repos opted in with `git config author.mode bot`, otherwise as the user with plain git/gh. Use when the user asks to commit, 'commit and push', 'push my changes', 'open a PR', 'ship this', or 'PR and request review'; or to reply to / address PR review comments from people or bots (CodeRabbit, Greptile) and resolve each addressed thread (posted as the bot in bot repos, never as the user); or to check a PR's CI / review status ('is it green?', 'did CI pass?', 'any changes requested?'); or to OPEN A GITHUB ISSUE ('open an issue', 'file a bug', 'create a tracking issue': created as the bot in bot repos, never silently as the user); or to FOLLOW UP on open PRs ('/git followup', 'merge the approved PRs', 'address the review feedback'): merges what's approved and green, reworks, resolves conflicts, fixes CI. NOT for general git questions or read-only git."
 ---
 
 # git - commit / push / PR / review, as the bot or as you
@@ -72,6 +72,8 @@ Stop here if the level is **commit**.
 
 If mode is `bot` but `gh-app` is unavailable (see Step 1), use the **me** path here - the commit stays bot-authored, only the push is as you.
 
+If the pushed commits address PR review comments, reply to and resolve each addressed thread now (**Replying to review comments** below). This applies at every level, `push` included.
+
 Stop here if the level is **push**.
 
 ## Step 5 - Open the PR (levels pr / review)
@@ -92,29 +94,45 @@ State the mode used, the commit SHA, and the PR URL (when one was opened). After
 
 ## Replying to review comments (standalone action)
 
-Use this whenever the user asks to **reply to**, **respond to**, or **address** a reviewer's comments on a PR. It is NOT a cumulative level - it is its own action, but it obeys the **same author mode**: in a `bot` repo the reply is posted as `beecodebot[bot]`, **never as you**. (Posting a review reply with plain `gh` is the exact bug this guards against - plain `gh` always authors as the user.)
+Use this whenever the user asks to **reply to**, **respond to**, or **address** a reviewer's comments on a PR, from a person or a review bot (CodeRabbit, Greptile, or any other). It is NOT a cumulative level - it is its own action, but it obeys the **same author mode**: in a `bot` repo the reply is posted as `beecodebot[bot]`, **never as you**. (Posting a review reply with plain `gh` is the exact bug this guards against - plain `gh` always authors as the user.)
 
 Unlike a commit, a comment's author **is** the `gh` token - there is no `-c` stamp to fall back on. So in a `bot` repo, if `gh-app` is unavailable (missing/unconfigured), **do not silently post as you**: stop and tell the user the reply can only go out as them until `gh-app setup` is run, and let them choose.
 
-Resolve the mode as in Step 1 and announce it (`Replying as beecodebot[bot] (bot mode).`). Then locate the PR and the comment(s):
+Resolve the mode as in Step 1 and announce it (`Replying as beecodebot[bot] (bot mode).`). Then locate the PR and its unresolved review threads:
 
 ```bash
 mode="$(git config --get author.mode || echo me)"
 repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 pr="$(gh pr view --json number --jq .number)"          # PR for the current branch
-# list the open inline review comments to reply to (id, file, author, body):
-gh api "/repos/$repo/pulls/$pr/comments" --jq '.[] | {id, path, line, user: .user.login, body}'
+# unresolved review threads: thread (to resolve), comment_id (to reply), author, bot, body
+gh api graphql -f owner="${repo%/*}" -f name="${repo#*/}" -F pr="$pr" -f query='
+  query($owner:String!,$name:String!,$pr:Int!){repository(owner:$owner,name:$name){pullRequest(number:$pr){
+    reviewThreads(first:100){nodes{id isResolved path line
+      comments(first:1){nodes{databaseId author{__typename login} body}}}}}}}' \
+  --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved|not) | .comments.nodes[0] as $c
+        | {thread: .id, comment_id: $c.databaseId, path, line, author: $c.author.login, bot: ($c.author.__typename == "Bot"), body: $c.body}'
 ```
 
 **Reply to a specific inline review comment** (threaded under that comment):
 - **bot:** `gh-app gh -- api --method POST "/repos/$repo/pulls/$pr/comments/<comment_id>/replies" -f body="<reply>"`
 - **me:**  `gh api --method POST "/repos/$repo/pulls/$pr/comments/<comment_id>/replies" -f body="<reply>"`
 
+**Resolve a review thread** (after the reply):
+- **bot:** `gh-app gh -- api graphql -f id="<thread>" -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}'`
+- **me:**  `gh api graphql -f id="<thread>" -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}'`
+
+**Close every thread you worked on. This is required.** Do it after the push, so the commit is on GitHub. Always reply before you resolve.
+- **Fixed:** reply `Fixed in <short sha>: <what changed>.`, then resolve.
+- **Not changed on purpose** (the comment is wrong, out of scope, or already handled): reply with the reason. Resolve the thread if the reviewer is a bot (`bot: true`). Leave a person's thread open, so they can answer.
+- **Unclear:** reply with your question, leave the thread open, and flag it in the report.
+
+Feedback that has no thread (a review body, such as CodeRabbit's nitpick list, or a top-level PR comment) cannot be resolved. Answer it in one general PR comment.
+
 **Post a general (non-inline) comment on the PR:**
 - **bot:** `gh-app gh -- pr comment "$pr" --body "<reply>"`
 - **me:**  `gh pr comment "$pr" --body "<reply>"`
 
-If the user also wants code changes for the feedback, make them and commit via Steps 3–4 **first**, then reply - so the fix and the reply come from the same identity. Reads used to gather context (listing comments, `gh pr view`) are fine as plain `gh`; only the write must go through `gh-app` in bot mode.
+If the user also wants code changes for the feedback, make them and commit and push via Steps 3–4 **first**, then reply and resolve - so the fix, the reply, and the resolve come from the same identity. Reads used to gather context (listing threads, `gh pr view`) are fine as plain `gh`; only the writes (reply, resolve) must go through `gh-app` in bot mode.
 
 ## Opening an issue (standalone action)
 
@@ -220,7 +238,7 @@ After a successful merge, delete the **remote** branch (skip if the user said to
 2. Get the branch without disturbing anything: if `git worktree list` already has it checked out, work there; otherwise `git fetch origin <branch>` and `git worktree add` a temporary worktree, removed when the PR is done. Never switch branches in a dirty checkout.
 3. Implement the requested changes and run the repo's tests/formatters per its conventions. If a request is ambiguous or seems wrong, implement what is clear and ask about the rest by replying on that comment; flag it in the report.
 4. Commit and push per Steps 3–4 (bot stamp + `gh-app push "HEAD:<branch>"` in bot mode). If the branch is behind its base, merge the base in (next section); never rebase.
-5. Reply to each addressed inline comment via the reply flow above, stating what changed.
+5. Reply to and resolve each addressed thread via the reply flow above.
 6. Re-request review from whoever requested the changes:
    - **bot:** `gh-app gh -- api -X POST "/repos/$repo/pulls/<n>/requested_reviewers" -f "reviewers[]=<login>"`
    - **me:** ask the user whom to request, as in Step 5.
@@ -245,4 +263,4 @@ Preserve both sides' intent; when a conflict is semantic and the right resolutio
 
 ### Report
 
-One table: PR, action taken, result. E.g. `#19 merged (a1b2c3d), remote branch deleted` / `#16 reworked, replied to 3 comments, review re-requested` / `#11 conflicts resolved, approval dismissed, review re-requested` / `#13 blocked: feedback ambiguous, question posted`. End with what is now waiting on the user (re-reviews, open questions). Never close a PR.
+One table: PR, action taken, result. E.g. `#19 merged (a1b2c3d), remote branch deleted` / `#16 reworked, 3 threads replied to and resolved, review re-requested` / `#11 conflicts resolved, approval dismissed, review re-requested` / `#13 blocked: feedback ambiguous, question posted`. End with what is now waiting on the user (re-reviews, open questions). Never close a PR.
