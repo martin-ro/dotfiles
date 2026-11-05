@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
 # open-in-nvim FILE
-# Load FILE into the running nvim in this herdr workspace, then focus its tab.
+# Load FILE into the running nvim in this Herdr space, then show that nvim's pane.
+# Herdr labels each terminal with its space, and every program in a terminal
+# inherits HC_TERMINAL_ID, so nvim's process says which terminal it is in.
 set -euo pipefail
 
 file=${1:?usage: open-in-nvim FILE}
 file=$(cd "$(dirname "$file")" && printf '%s/%s' "$PWD" "$(basename "$file")")
 
-ws=${HERDR_WORKSPACE_ID:-}
-sock=""; tab=""
-# Neovim's RPC socket location depends on version/OS: modern nvim (>=0.10) on Linux
-# listens at $XDG_RUNTIME_DIR/nvim.<pid>.0, whereas with XDG_RUNTIME_DIR unset (e.g.
-# macOS) it falls back to $TMPDIR/nvim.<user>/<xxxx>/nvim.<pid>.0. Under the new
-# split-UI model the socket belongs to nvim's core (`nvim --embed`) child, which
-# still inherits HERDR_WORKSPACE_ID from its pane. Search all known locations.
-# NB: don't trust $XDG_RUNTIME_DIR being exported — when this runs from a herdr
-# keybinding the env can be minimal, so also probe the canonical /run/user/<uid>.
+json() { python3 -c "import json, sys; d = json.load(sys.stdin); $1"; }
+me=${HC_TERMINAL_ID:?open-in-nvim: not in a Herdr terminal}
+space=$(hc get "$me" --json | json 'print(d.get("terminal", d)["labels"]["herdr.space"])')
+here=" $(hc ls --label "herdr.space=$space" --json | json 'print(" ".join(t["address"] for t in (d if isinstance(d, list) else d["terminals"])))') "
+
+# Neovim's socket is named after its pid: $XDG_RUNTIME_DIR/nvim.<pid>.0 on Linux,
+# $TMPDIR/nvim.<user>/<xxxx>/nvim.<pid>.0 where XDG_RUNTIME_DIR is unset (macOS).
 uid=$(id -u)
+sock=""; term=""
 for s in \
     "${XDG_RUNTIME_DIR:-/run/user/$uid}"/nvim.*.0 \
     "/run/user/$uid"/nvim.*.0 \
@@ -23,17 +24,16 @@ for s in \
     /tmp/nvim."$USER"/*/nvim.*.0; do
     [ -S "$s" ] || continue
     pid=${s##*nvim.}; pid=${pid%.0}
-    envline=$(ps eww "$pid" 2>/dev/null) || continue
-    case "$envline" in *"HERDR_WORKSPACE_ID=$ws"*) ;; *) continue ;; esac
-    sock=$s
-    tab=$(printf '%s\n' "$envline" | tr ' ' '\n' | sed -n 's/^HERDR_TAB_ID=//p')
-    break
+    t=$(ps eww "$pid" 2>/dev/null | tr ' ' '\n' | sed -n 's/^HC_TERMINAL_ID=//p' | head -n 1) || true
+    case "$here" in *" $t "*) [ -n "$t" ] && { sock=$s; term=$t; break; } ;; esac
 done
 
 if [ -z "$sock" ]; then
-    echo "open-in-nvim: no running nvim found in this herdr workspace" >&2
+    echo "open-in-nvim: no running nvim in this Herdr space" >&2
     exit 1
 fi
 
 nvim --server "$sock" --remote "$file"
-[ -n "$tab" ] && herdr tab focus "$tab" >/dev/null 2>&1 || true
+# The Herdr app shows the pane of a terminal whose focus.at label changes
+# (see the clickup-spaces mod). This works from any machine.
+hc label "$term" "focus.at=$(date +%s).$$" >/dev/null 2>&1 || true
