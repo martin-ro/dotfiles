@@ -35,8 +35,8 @@ o.bind("SUPER + SHIFT + W", "WhatsApp", { webapp = "https://web.whatsapp.com/", 
 
 o.bind("SUPER + SHIFT + S", "Screenshot", "omarchy-capture-screenshot")
 
-o.bind("SUPER + D", "Toggle dictation", "voxtype record toggle")
-o.bind("SUPER + SHIFT + D", "Cancel dictation", "voxtype record cancel")
+o.bind("SUPER + D", "Toggle dictation", "omarchy-dictation toggle")
+o.bind("SUPER + SHIFT + D", "Cancel dictation", "superwhisper cancel")
 o.bind("SUPER + ALT + Y", "YouTube Shelf", "omarchy-shell shell summon io.github.martin-ro.youtube-shelf '{}'")
 
 -- Make Super+C and Super+V copy and paste in Herdr, as in other terminals.
