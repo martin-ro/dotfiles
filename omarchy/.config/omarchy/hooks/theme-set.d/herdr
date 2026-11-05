@@ -1,0 +1,8 @@
+#!/bin/bash
+# Give the Herdr app the current palette, rendered from themed/herdr.json.tpl.
+# Herdr picks the file up at once.
+src=$HOME/.local/state/omarchy/current/theme/herdr.json
+dst=$HOME/.config/herdr-app/themes
+
+[[ -f $src && -d $dst ]] || exit 0
+cp "$src" "$dst/omarchy.json"
