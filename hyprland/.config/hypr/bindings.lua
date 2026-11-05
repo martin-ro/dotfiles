@@ -39,4 +39,14 @@ o.bind("SUPER + D", "Toggle dictation", "voxtype record toggle")
 o.bind("SUPER + SHIFT + D", "Cancel dictation", "voxtype record cancel")
 o.bind("SUPER + ALT + Y", "YouTube Shelf", "omarchy-shell shell summon io.github.martin-ro.youtube-shelf '{}'")
 
+-- Make Super+C and Super+V copy and paste in Herdr, as in other terminals.
+o.window("herdr-app", { tag = "+terminal" })
+
 require("hypr.qconsole")
+
+-- Dictation keys from before Alt + Space and Right Alt became the defaults.
+-- Remove these lines to give the keys back to applications.
+if o.dictation_installed and o.dictation_installed() then
+  o.bind("SUPER + CTRL + X", "Toggle dictation", "omarchy-dictation toggle")
+  o.bind_hold("F9", "Start dictation (push-to-talk)", "omarchy-dictation start", "Stop dictation (push-to-talk)", "omarchy-dictation stop")
+end
