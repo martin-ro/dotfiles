@@ -23,7 +23,12 @@
     "npm:pi-subagents@0.66.0",
     "npm:@ff-labs/pi-fff@0.10.6"
   ],
-  "lastChangelogVersion": "0.87.0",
+  "lastChangelogVersion": "1.5.0",
   "tuiMode": "fullscreen",
-  "defaultProjectTrust": "always"
+  "defaultProjectTrust": "always",
+  "extensionChangelogVersions": {
+    "{\"source\":\"npm:pi-mcp-adapter@2.32.1\",\"scope\":\"user\"}": "2.32.1",
+    "{\"source\":\"npm:pi-web-access@0.28.0\",\"scope\":\"user\"}": "0.28.0",
+    "{\"source\":\"npm:pi-subagents@0.66.0\",\"scope\":\"user\"}": "0.66.0"
+  }
 }
