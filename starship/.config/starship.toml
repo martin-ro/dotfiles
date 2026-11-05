@@ -1,10 +1,17 @@
 add_newline = true
 command_timeout = 200
-format = "[$directory$git_branch$git_status]($style)$character"
+format = "$hostname[$directory$git_branch$git_status]($style)$character"
 
 [character]
 error_symbol = "[✗](bold cyan)"
 success_symbol = "[❯](bold cyan)"
+
+# The machine's name on every machine (Herdr's terminals there aren't ssh sessions).
+[hostname]
+ssh_only = false
+format = "[$hostname]($style) "
+style = "bold purple"
+aliases = { "mmbp" = "mac" }
 
 [directory]
 truncation_length = 2
