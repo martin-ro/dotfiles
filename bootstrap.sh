@@ -8,7 +8,7 @@ cd "$DF"
 
 echo "==> System packages (apt)"
 sudo apt-get update -y
-sudo apt-get install -y stow git build-essential curl unzip git-delta git-lfs redis-server bat btop htop
+sudo apt-get install -y stow git build-essential curl unzip git-delta git-lfs redis-server bat btop htop eza zoxide
 
 echo "==> Neovim (latest release to ~/.local; apt's 0.9/0.10 is too old for the nvim config)"
 export PATH="$HOME/.local/bin:$PATH"   # so the headless Lazy sync below finds this nvim
@@ -153,6 +153,7 @@ if ! command -v starship >/dev/null 2>&1; then
   echo "==> Starship (same prompt as Omarchy)"
   curl -fsSL https://starship.rs/install.sh | sh -s -- -y -b "$HOME/.local/bin"
 fi
+ln -sf /usr/bin/batcat "$HOME/.local/bin/bat" # Ubuntu calls it batcat; bash ff previews with bat
 
 stow -v -t "$HOME" bash nvim git herdr lazygit bin caddy claude codex yazi pi agents grok starship
 
