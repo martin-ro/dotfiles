@@ -1,6 +1,6 @@
 add_newline = true
 command_timeout = 200
-format = "$hostname[$directory$git_branch$git_status]($style)$character"
+format = "$hostname[${custom.repo}$directory$git_branch$git_status]($style)$character"
 
 [character]
 error_symbol = "[✗](bold cyan)"
@@ -13,15 +13,24 @@ format = "[$hostname]($style) "
 style = "bold purple"
 aliases = { "mmbp" = "mac" }
 
+# The repo's name, also in a worktree (Herdr names those after the long branch).
+[custom.repo]
+command = 'd=$(git rev-parse --path-format=absolute --git-common-dir); d=${d%/.git}; echo "${d##*/}"'
+when = true
+require_repo = true
+format = "[$output]($style)"
+style = "bold cyan"
+
 [directory]
 truncation_length = 2
 truncation_symbol = "…/"
-repo_root_style = "bold cyan"
-repo_root_format = "[$repo_root]($repo_root_style)[$path]($style)[$read_only]($read_only_style) "
+repo_root_style = "bold cyan" # Keep: it turns on repo_root_format.
+repo_root_format = "[$path]($style)[$read_only]($read_only_style) "
 
 [git_branch]
 format = "[$branch]($style) "
 style = "italic cyan"
+truncation_length = 15
 
 [git_status]
 format     = '[$all_status]($style)'
