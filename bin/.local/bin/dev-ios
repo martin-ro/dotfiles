@@ -162,6 +162,18 @@ if [[ -f package.json ]]; then
   fi
 fi
 
+# With the version DEBUG, NativePHP deletes and unpacks the whole app at every
+# launch (about 6 s on an iPhone). Each build gets a real version and a new build
+# number instead, so the phone unpacks only once, after the install. The build
+# number must change, or the phone keeps the old code. Hot reload keeps DEBUG.
+if [[ " $* " != *" -W "* && " $* " != *" --watch "* ]] && grep -Eq '^NATIVEPHP_APP_VERSION="?DEBUG"?$' .env 2>/dev/null; then
+  cp .env .env.dev-ios
+  trap 'mv -f .env.dev-ios .env' EXIT
+  sed -i '' -E 's/^NATIVEPHP_APP_VERSION=.*/NATIVEPHP_APP_VERSION=0.0.1/' .env
+  sed -i '' -E '/^NATIVEPHP_APP_VERSION_CODE=/d' .env
+  echo "NATIVEPHP_APP_VERSION_CODE=$(date +%s)" >> .env
+fi
+
 "$PHP" artisan native:run "$PLATFORM" "$@"
 # native:run exits 0 after "Build failed!"; the log (truncated per run) is the signal.
 ! grep -qs "BUILD FAILED" "nativephp/$PLATFORM-build.log"
