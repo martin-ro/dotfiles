@@ -23,6 +23,7 @@ o.bind("SUPER + SHIFT + K", "Swap window up", hl.dsp.window.swap({ direction = "
 o.bind("SUPER + SHIFT + L", "Swap window to the right", hl.dsp.window.swap({ direction = "r" }))
 
 o.bind("SUPER + ALT + J", "Toggle window split", hl.dsp.layout("togglesplit"))
+o.bind("SUPER + ALT + L", "Cycle workspace layout", "omarchy-hyprland-workspace-layout-toggle")
 o.bind("SUPER + ALT + K", "Keybindings", "omarchy-menu-keybindings")
 o.bind("SUPER + ALT + T", "Project timers", "omarchy-shell shell toggle martin.timers")
 
