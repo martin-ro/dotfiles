@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# release-ios — build the box's sct-app checkout as a signed release on the Mac and
+# upload it to App Store Connect (TestFlight). Runs on the box.
+#
+#   release-ios
+#
+# The Mac keeps everything secret in ~/.appstoreconnect/signing:
+#   ios-release.env  NativePHP signing variables (API key, certificate, password, profile).
+#                    They go into the build's environment, never into the app's .env.
+#   app-release.env  KEY=VALUE overrides for the app's .env (backend URL, APP_ENV,
+#                    version, RevenueCat key). The .env ships inside the app.
+#   build-number     the last uploaded build number; native:package raises it by one.
+set -euo pipefail
+
+BOX="${RELEASE_BOX:-$HOME/Work/sct-app}"
+MAC_DIR=code/sct-app-release
+EXCLUDES=(--exclude=/.git --exclude=/vendor --exclude=/node_modules --exclude=/nativephp
+  --exclude=/public/build --exclude='/public/*-hot' --exclude=/public/storage
+  --exclude=/storage/framework --exclude=/storage/logs --exclude=/bootstrap/cache --exclude=/.env)
+
+ssh mac "mkdir -p ~/$MAC_DIR"
+rsync -a -F --delete "${EXCLUDES[@]}" "$BOX/" "mac:$MAC_DIR/"
+scp -q "$BOX/.env" "mac:$MAC_DIR/.env.box"
+
+ssh -T mac "bash -s" "$MAC_DIR" <<'MAC'
+set -euo pipefail
+export PATH="$HOME/.bun/bin:/opt/homebrew/bin:$PATH"
+cd "$HOME/$1"
+SIGN="$HOME/.appstoreconnect/signing"
+
+PW="$HOME/.config/dev-ios/keychain-password"
+[[ -r "$PW" ]] && security unlock-keychain -p "$(<"$PW")" ~/Library/Keychains/login.keychain-db
+
+# Herd's PHP isolation lives in shell aliases, so pin both binaries on PATH.
+PHP="$HOME/Library/Application Support/Herd/bin/php85"
+COMPOSER="$HOME/Library/Application Support/Herd/bin/composer"
+SHIM_DIR=$(mktemp -d)
+printf '#!/bin/sh\nexec "%s" "$@"\n' "$PHP" > "$SHIM_DIR/php"
+printf '#!/bin/sh\nexec "%s" "%s" "$@"\n' "$PHP" "$COMPOSER" > "$SHIM_DIR/composer"
+chmod +x "$SHIM_DIR/php" "$SHIM_DIR/composer"
+export PATH="$SHIM_DIR:$PATH"
+
+set_key() {
+  if grep -q "^$1=" .env; then sed -i '' -E "s#^$1=.*#$1=$2#" .env; else echo "$1=$2" >> .env; fi
+}
+BUILD_FILE="$SIGN/build-number"
+[[ -f "$BUILD_FILE" ]] || echo 0 > "$BUILD_FILE"
+mv .env.box .env
+set_key NATIVEPHP_APP_VERSION_CODE "$(cat "$BUILD_FILE")"
+while IFS='=' read -r key value; do [[ -n "$key" ]] && set_key "$key" "$value"; done < "$SIGN/app-release.env"
+
+mkdir -p bootstrap/cache storage/logs storage/app/public storage/framework/cache/data \
+  storage/framework/sessions storage/framework/testing storage/framework/views
+composer install --no-interaction --no-progress --quiet
+[[ -f package.json ]] && bun install --silent
+if [[ ! -d nativephp/ios ]]; then
+  OPEN_SHIM=$(mktemp -d); printf '#!/bin/sh\nexit 0\n' > "$OPEN_SHIM/open"; chmod +x "$OPEN_SHIM/open"
+  PATH="$OPEN_SHIM:$PATH" php artisan native:install ios --no-interaction
+fi
+grep -o "DEVELOPMENT_TEAM = [A-Z0-9]*" nativephp/ios/NativePHP.xcodeproj/project.pbxproj | sort -u
+
+set -a; . "$SIGN/ios-release.env"; set +a
+php artisan native:package ios --export-method=app-store --upload-to-app-store --no-interaction
+
+grep -E "^NATIVEPHP_APP_VERSION_CODE=" .env | sed -E 's/.*=//; s/"//g' > "$BUILD_FILE"
+echo "uploaded build: $(grep -E '^NATIVEPHP_APP_VERSION=' .env | sed -E 's/.*=//; s/"//g') ($(cat "$BUILD_FILE"))"
+MAC
