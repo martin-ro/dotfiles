@@ -60,7 +60,11 @@ fi
 grep -o "DEVELOPMENT_TEAM = [A-Z0-9]*" nativephp/ios/NativePHP.xcodeproj/project.pbxproj | sort -u
 
 set -a; . "$SIGN/ios-release.env"; set +a
-php artisan native:package ios --export-method=app-store --upload-to-app-store --no-interaction
+# Without --rebuild the packager reuses the last archive: the old code and the old build number.
+# It exits 0 when the upload fails, so the log decides.
+LOG=$(mktemp)
+php artisan native:package ios --export-method=app-store --upload-to-app-store --rebuild --no-interaction 2>&1 | tee "$LOG"
+if grep -q "Upload to App Store Connect failed" "$LOG"; then echo "release-ios: the upload failed" >&2; exit 1; fi
 
 grep -E "^NATIVEPHP_APP_VERSION_CODE=" .env | sed -E 's/.*=//; s/"//g' > "$BUILD_FILE"
 echo "uploaded build: $(grep -E '^NATIVEPHP_APP_VERSION=' .env | sed -E 's/.*=//; s/"//g') ($(cat "$BUILD_FILE"))"
